@@ -41,4 +41,4 @@ yarn-error.log*
 next-env.d.ts
 
 # generation (python lib)
-/generation/venv
+/generation/meshcrate-env/

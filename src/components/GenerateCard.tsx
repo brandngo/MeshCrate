@@ -1,8 +1,53 @@
 import Info, { Properties } from "./Info";
-import React, { useState, Suspense } from "react";
-import { Canvas, useLoader } from "@react-three/fiber";
+import React, { useState, useRef, useEffect, Suspense } from "react";
+import { Canvas, useLoader, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import * as THREE from 'three';
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+
+interface STLModelProps {
+  url: string;
+  zoom?: number;
+}
+
+function STLModel({ url, zoom=1.2 }: STLModelProps) {
+   // @ts-ignore
+  const geometry = useLoader<THREE.BufferGeometry, string>(STLLoader, url);
+  const { camera } = useThree();
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useEffect(() => {
+    geometry.computeBoundingBox();
+    const bbox = geometry.boundingBox;
+    if (!bbox || !meshRef.current) return;
+
+    // 🔁 Rotate model 45 degrees around Y axis
+    meshRef.current.rotation.y = Math.PI / 4;
+
+    const center = new THREE.Vector3();
+    bbox.getCenter(center);
+
+    const size = new THREE.Vector3();
+    bbox.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+
+     // @ts-ignore
+    const fovRad = (camera.fov * Math.PI) / 180;
+    const distance = (maxDim) / Math.tan(fovRad / 2) * zoom;
+
+    // 🧭 Position camera in front of model, offset along Z
+    const cameraPos = new THREE.Vector3(center.x, center.y, center.z + distance);
+
+    camera.position.copy(cameraPos);
+    camera.lookAt(center);
+  }, [geometry, camera, zoom]);
+  return (
+    <mesh geometry={geometry}>
+      <meshStandardMaterial color="orange" />
+    </mesh>
+  );
+}
+
 
 export default function GenerateCard() {
   const [title, setTitle] = useState<string>();
@@ -12,20 +57,13 @@ export default function GenerateCard() {
     { key: "Complexity", val: "Medium" },
   ]);
 
-  const stlGeometry = useLoader(STLLoader, "/KregStand.stl");
-
   return (
     <div className="relative flex flex-col my-6 bg-white shadow-sm border border-slate-200 rounded-lg w-full">
       <div className="relative h-56 m-2.5 overflow-hidden text-white rounded-md">
-        <Canvas style={{ backgroundColor: "lightgray" }}>
-          <ambientLight intensity={1} />
-          <directionalLight position={[10, 10, 10]} />
-          <Suspense fallback={null}>
-            <mesh geometry={stlGeometry} rotation={[0, 10, 0]}>
-              <meshStandardMaterial color="gray" />
-              <meshPhongMaterial />
-            </mesh>
-          </Suspense>
+        <Canvas camera={{ near: 0.1, far: 1000 }}>
+          <ambientLight intensity={0.4} />
+          <directionalLight position={[10, 10, 10]} intensity={1} />
+          <STLModel url="/Dragon.stl" zoom={10} />
           <OrbitControls />
         </Canvas>
       </div>
